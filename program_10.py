@@ -51,12 +51,19 @@ def ClipData( DataDF, startDate, endDate ):
     """This function clips the given time series dataframe to a given range 
     of dates. Function returns the clipped dataframe and and the number of 
     missing values."""
+
+    # INPUT: DF, 2 dates
+    # redefine MV to make it local since it's not a direct input to this function
+    MissingValues = DataDF["Discharge"].isna().sum() 
     
     # given the dict, want to apply clip to each dataframe
     b = DataDF.index < startDate # before
     a = DataDF.index > endDate # after
     DataDF = DataDF[startDate:endDate] # clip
-    MissingValues[file] = MissingValues[file] + b.sum() + a.sum() # add count clipped
+    # OUTPUT 1: Dataframe (clipped)
+    # must add to missing val's based on filename, but then also redefine as the output
+    MissingValues = MissingValues + b.sum() + a.sum() # add count clipped
+    # OUTPUT 2: add to mv dictionary for specific file
 
     return( DataDF, MissingValues )
 
@@ -130,17 +137,17 @@ def GetAnnualStatistics(DataDF):
     starts on October 1."""
     
     # Resample data to water years to create new df  with stats as series  w. water year as index
-    mean =  DataDF['Discharge'].resample('A-SEP').mean()
-    peak = DataDF['Discharge'].resample('A-SEP').max()
-    med = DataDF['Discharge'].resample('A-SEP').median()
+    mean =  DataDF['Discharge'].resample('AS-OCT').mean()
+    peak = DataDF['Discharge'].resample('AS-OCT').max()
+    med = DataDF['Discharge'].resample('AS-OCT').median()
     # for coeff of var. div std dev/mean then x100
-    sd = DataDF['Discharge'].resample('A-SEP').std()
+    sd = DataDF['Discharge'].resample('AS-OCT').std()
     cov = sd/mean*100
-    skw = DataDF['Discharge'].resample('A-SEP').apply(skew)
-    tq = DataDF['Discharge'].resample('A-SEP').apply(CalcTqmean) # DF of series will be the Qvalues input
-    rb = DataDF['Discharge'].resample('A-SEP').apply(CalcRBindex)
-    sq = DataDF['Discharge'].resample('A-SEP').apply(Calc7Q)
-    tm = DataDF['Discharge'].resample('A-SEP').apply(CalcExceed3TimesMedian)
+    skw = DataDF['Discharge'].resample('AS-OCT').apply(skew)
+    tq = DataDF['Discharge'].resample('AS-OCT').apply(CalcTqmean) # DF of series will be the Qvalues input
+    rb = DataDF['Discharge'].resample('AS-OCT').apply(CalcRBindex)
+    sq = DataDF['Discharge'].resample('AS-OCT').apply(Calc7Q)
+    tm = DataDF['Discharge'].resample('AS-OCT').apply(CalcExceed3TimesMedian)
     
     WYDataDF = pd.DataFrame({'Mean Flow':mean,'Peak Flow':peak,'Median Flow':med,\
             'Coeff Var':cov,'Skew':skw,'Tqmean':tq,'R-B Index':rb,'7Q':sq,'3xMedian':tm})
@@ -153,11 +160,11 @@ def GetMonthlyStatistics(DataDF):
     of monthly values for each year."""
 
     # INPUT: DF
-    mean =  DataDF['Discharge'].resample('M').mean()
-    sd = DataDF['Discharge'].resample('M').std()
+    mean =  DataDF['Discharge'].resample('MS').mean()
+    sd = DataDF['Discharge'].resample('MS').std()
     cov = sd/mean*100
-    tq = DataDF['Discharge'].resample('M').apply(CalcTqmean) # DF of series will be the Qvalues input
-    rb = DataDF['Discharge'].resample('M').apply(CalcRBindex)
+    tq = DataDF['Discharge'].resample('MS').apply(CalcTqmean) # DF of series will be the Qvalues input
+    rb = DataDF['Discharge'].resample('MS').apply(CalcRBindex)
 
     MoDataDF = pd.DataFrame({'Mean Flow':mean,'Coeff Var':cov,'Tqmean':tq,'R-B Index':rb})
     # OUTPUT:  NEW DF
@@ -244,35 +251,31 @@ if __name__ == '__main__':
         
         print("-"*50, "\n\nSummary of monthly metrics...\n\n", MoDataDF[file].describe(), "\n\nAnnual Monthly Averages...\n\n", MonthlyAverages[file])
         
-# output 4 files: 
-# MONTHLY
-for file in fileName.keys():
-    # add col for station name: 
-    MonthlyAverages[file]['Station'] = file
-# stack elements in dictionary to create one dataframe
-mo_stack = pd.concat([MonthlyAverages['Wildcat'],MonthlyAverages['Tippe']],axis=0)
-# 1. csv
-mo_stack.to_csv('Average_Monthly_Metrics.csv',sep=',')
-# 1. tab
-mo_stack.to_csv('Average_Monthly_Metrics.txt',sep='\t')
+    # output 4 files: - after all other functions performed to import (&etc.) but inside final 'if'
     
-# ANNUALLY
-for file in fileName.keys():
-    # add col for station name: 
-    AnnualAverages[file]['Station'] = file
-# stack elements in dictionary to create one dataframe
-yr_stack = pd.concat([AnnualAverages['Wildcat'],AnnualAverages['Tippe']],axis=1)
-# 1. csv
-yr_stack.to_csv('Average_Annual_Metrics.csv',sep=',')
-# 1. tab
-yr_stack.to_csv('Average_Annual_Metrics.txt',sep='\t')
-    # write failed check data to tab delim file: 
+        # add col for station name based on the keys : 
+        MonthlyAverages[file]['Station'] = file
+        # add col for station name: 
+        AnnualAverages[file]['Station'] = file
+
+    # MONTHLY
+    # stack elements in dictionary to create one dataframe
+    mo_stack = pd.concat([MonthlyAverages['Wildcat'],MonthlyAverages['Tippe']],axis=0)
+    # 1. csv
+    mo_stack.to_csv('Average_Monthly_Metrics.csv',sep=',')
+    # 1. tab
+    mo_stack.to_csv('Average_Monthly_Metrics.txt',sep='\t')
         
-        
-    # 1. ANNUAL - csv
-    
-    
-    # 3. ANNUAL - tab
-    
-    # 4. MONTHLY - tab
+    # ANNUALLY
+    # stack elements in dictionary to create one dataframe
+    yr_stack = pd.concat([AnnualAverages['Wildcat'],AnnualAverages['Tippe']],axis=1)
+    # 1. csv
+    yr_stack.to_csv('Average_Annual_Metrics.csv',sep=',')
+    # 1. tab
+    yr_stack.to_csv('Average_Annual_Metrics.txt',sep='\t')
+
+
+
+
+
         
